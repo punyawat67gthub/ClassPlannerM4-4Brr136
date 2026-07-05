@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ม.4/4 · ตัวจัดการงาน</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;500;600;700&family=Sarabun:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --void:#05060f;
+    --nebula-1:#6e3aa8;
+    --nebula-2:#c6297d;
+    --nebula-3:#233a8f;
+    --cyan:#4fe3d0;
+    --glass:rgba(255,255,255,0.06);
+    --glass-border:rgba(255,255,255,0.14);
+    --glass-strong:rgba(255,255,255,0.11);
+    --ink:#f3f0ff;
+    --ink-dim:#a9a4c9;
+    --danger:#ff6b8b;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    font-family:'Sarabun',sans-serif;
+    color:var(--ink);
+    background:var(--void);
+    overflow-x:hidden;
+    min-height:100vh;
+    position:relative;
+  }
+
+  /* ---------- galaxy background ---------- */
+  #galaxy-video{
+    position:fixed; inset:0; width:100%; height:100%; z-index:-1;
+    object-fit:cover; object-position:center;
+  }
+  #galaxy-canvas{
+    position:fixed; inset:0; width:100%; height:100%; z-index:0;
+    mix-blend-mode:screen; opacity:0.7;
+  }
+  .nebula-blob{
+    position:fixed; border-radius:50%; filter:blur(90px); z-index:0; opacity:0.22;
+    mix-blend-mode:screen;
+    animation:drift 40s ease-in-out infinite;
+    pointer-events:none;
+  }
+  .nebula-blob.b1{width:560px;height:560px; background:radial-gradient(circle,var(--nebula-1),transparent 70%); top:-10%; left:-10%; animation-duration:46s;}
+  .nebula-blob.b2{width:620px;height:620px; background:radial-gradient(circle,var(--nebula-2),transparent 70%); bottom:-15%; right:-10%; animation-duration:54s; animation-delay:-8s;}
+  .nebula-blob.b3{width:420px;height:420px; background:radial-gradient(circle,var(--nebula-3),transparent 70%); top:35%; left:55%; animation-duration:60s; animation-delay:-20s;}
+  @keyframes drift{
+    0%{transform:translate(0,0) scale(1);}
+    33%{transform:translate(6%,4%) scale(1.08);}
+    66%{transform:translate(-4%,6%) scale(0.96);}
+    100%{transform:translate(0,0) scale(1);}
+  }
+  .vignette{
+    position:fixed; inset:0; z-index:1; pointer-events:none;
+    background:radial-gradient(circle at 50% 40%, transparent 0%, rgba(5,6,15,0.35) 60%, rgba(5,6,15,0.85) 100%);
+  }
+
+  /* ---------- layout ---------- */
+  .app{
+    position:relative; z-index:2;
+    min-height:100vh;
+    display:flex; flex-direction:column; align-items:center;
+    padding:32px 20px 70px;
+  }
+  header.topbar{
+    width:100%; max-width:760px;
+    display:flex; align-items:center; gap:14px;
+    margin-bottom:38px;
+  }
+  .back-btn{
+    display:none;
+    width:42px;height:42px;border-radius:50%;
+    background:var(--glass); border:1px solid var(--glass-border);
+    align-items:center;justify-content:center;
+    cursor:pointer; color:var(--ink); font-size:18px;
+    backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+    transition:transform .18s ease, background .18s ease;
+  }
+  .back-btn:hover{transform:scale(1.1); background:var(--glass-strong);}
+  .back-btn:active{transform:scale(0.9);}
+  .brand{
+    display:flex; flex-direction:column; gap:2px;
+  }
+  .brand .eyebrow{
+    font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.18em;
+    color:var(--cyan); text-transform:uppercase; opacity:.85;
+  }
+  .brand h1{
+    font-family:'Kanit',sans-serif; font-weight:600; font-size:22px;
+    letter-spacing:.01em;
+  }
+
+  main{width:100%; max-width:760px; flex:1;}
+  .screen{display:none; animation:rise .5s cubic-bezier(.2,.8,.2,1);}
+  .screen.active{display:block;}
+  @keyframes rise{
+    from{opacity:0; transform:translateY(18px);}
+    to{opacity:1; transform:translateY(0);}
+  }
+
+  /* ---------- glass card base ---------- */
+  .glass{
+    background:var(--glass);
+    border:1px solid var(--glass-border);
+    border-radius:22px;
+    backdrop-filter:blur(20px) saturate(140%);
+    -webkit-backdrop-filter:blur(20px) saturate(140%);
+    box-shadow:0 8px 32px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.12);
+    position:relative;
+    overflow:hidden;
+  }
+  .glass::before{
+    content:'';
+    position:absolute; top:0; left:-60%; width:40%; height:100%;
+    background:linear-gradient(115deg, transparent, rgba(255,255,255,0.16), transparent);
+    transform:skewX(-18deg);
+    transition:left .6s ease;
+    pointer-events:none;
+  }
+  .glass:hover::before{ left:120%; }
+
+  /* ---------- home menu ---------- */
+  .home-grid{
+    display:grid; gap:20px;
+  }
+  .menu-tile{
+    padding:30px 28px;
+    cursor:pointer;
+    display:flex; align-items:center; gap:20px;
+    transition:transform .25s cubic-bezier(.2,.8,.2,1), box-shadow .25s ease, border-color .25s ease;
+  }
+  .menu-tile:hover{
+    transform:translateY(-4px) scale(1.015);
+    border-color:rgba(255,255,255,0.32);
+    box-shadow:0 16px 48px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.06), inset 0 1px 0 rgba(255,255,255,0.16);
+  }
+  .menu-tile:active{ transform:translateY(-1px) scale(0.985); }
+  .menu-tile .icon{
+    width:58px;height:58px;border-radius:16px;
+    display:flex;align-items:center;justify-content:center;
+    font-size:26px; flex-shrink:0;
+  }
+  .menu-tile.tasks .icon{background:linear-gradient(135deg,var(--nebula-2),var(--nebula-1));}
+  .menu-tile.subjects .icon{background:linear-gradient(135deg,var(--nebula-3),var(--cyan));}
+  .menu-tile.done .icon{background:linear-gradient(135deg,#2ecf82,#4fe3d0);}
+  .menu-tile .txt h2{font-family:'Kanit',sans-serif; font-weight:600; font-size:19px; margin-bottom:4px;}
+  .menu-tile .txt p{font-size:13.5px; color:var(--ink-dim);}
+  .menu-tile .count{
+    margin-left:auto; font-family:'JetBrains Mono',monospace; font-size:24px; font-weight:500;
+    color:var(--ink);
+    opacity:.9;
+  }
+
+  /* ---------- day picker ---------- */
+  .section-title{
+    font-family:'Kanit',sans-serif; font-weight:500; font-size:15px;
+    color:var(--ink-dim); margin-bottom:14px; letter-spacing:.02em;
+  }
+  .day-row{
+    display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin-bottom:26px;
+  }
+  .day-pill{
+    padding:16px 6px; text-align:center; cursor:pointer;
+    border-radius:16px;
+    font-family:'Kanit',sans-serif; font-weight:500; font-size:14.5px;
+    transition:transform .2s cubic-bezier(.2,.8,.2,1), background .2s ease, border-color .2s ease;
+  }
+  .day-pill .sub{display:block; font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--ink-dim); margin-top:4px;}
+  .day-pill:hover{ transform:translateY(-3px) scale(1.04); border-color:rgba(255,255,255,0.34); }
+  .day-pill:active{ transform:translateY(0) scale(0.94); }
+  .day-pill.selected{
+    background:linear-gradient(135deg, rgba(110,58,168,0.55), rgba(198,41,125,0.45));
+    border-color:rgba(255,255,255,0.4);
+  }
+  .day-pill.has-badge{position:relative;}
+  .day-pill .dot{
+    position:absolute; top:8px; right:10px; width:7px;height:7px;border-radius:50%;
+    background:var(--danger); box-shadow:0 0 8px var(--danger);
+  }
+
+  /* ---------- subject list ---------- */
+  .subject-list{ display:flex; flex-direction:column; gap:12px; }
+  .subject-card{
+    display:flex; align-items:center; gap:16px;
+    padding:16px 18px; cursor:pointer;
+    transition:transform .2s cubic-bezier(.2,.8,.2,1), border-color .2s ease;
+  }
+  .subject-card:hover{ transform:translateX(4px) scale(1.01); border-color:rgba(255,255,255,0.3); }
+  .subject-card:active{ transform:translateX(2px) scale(0.98); }
+  .period-tag{
+    font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--void);
+    background:var(--cyan); border-radius:8px; padding:5px 9px; flex-shrink:0;
+    min-width:38px; text-align:center; font-weight:500;
+  }
+  .subject-info{flex:1;}
+  .subject-info .name{font-family:'Kanit',sans-serif; font-weight:500; font-size:15.5px;}
+  .subject-info .meta{font-size:12.5px; color:var(--ink-dim); margin-top:2px;}
+  .subject-info .meta .n{color:var(--ink-dim);}
+  .chevron{color:var(--ink-dim); font-size:18px;}
+
+  /* ---------- task form ---------- */
+  .form-card{ padding:28px; }
+  .form-card .chosen{
+    font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--cyan);
+    letter-spacing:.06em; margin-bottom:6px; text-transform:uppercase;
+  }
+  .form-card h2{ font-family:'Kanit',sans-serif; font-size:21px; font-weight:600; margin-bottom:2px;}
+  .form-card .teacher-line{ font-size:13px; color:var(--ink-dim); margin-bottom:20px;}
+  textarea{
+    width:100%; min-height:110px; resize:vertical;
+    background:rgba(255,255,255,0.05); border:1px solid var(--glass-border);
+    border-radius:14px; padding:14px 16px; color:var(--ink);
+    font-family:'Sarabun',sans-serif; font-size:15px; line-height:1.6;
+    outline:none; transition:border-color .2s ease, background .2s ease;
+  }
+  textarea:focus{ border-color:var(--cyan); background:rgba(255,255,255,0.08); }
+  textarea::placeholder{ color:var(--ink-dim); }
+
+  /* ---------- buttons ---------- */
+  .btn{
+    font-family:'Kanit',sans-serif; font-weight:500; font-size:15px;
+    padding:13px 26px; border-radius:14px; border:none; cursor:pointer;
+    color:var(--ink); letter-spacing:.01em;
+    display:inline-flex; align-items:center; gap:8px; justify-content:center;
+    transition:transform .18s cubic-bezier(.3,1.4,.5,1), box-shadow .2s ease, filter .2s ease;
+  }
+  .btn:hover{ transform:scale(1.055); filter:brightness(1.1); }
+  .btn:active{ transform:scale(0.93); }
+  .btn-primary{
+    background:linear-gradient(135deg,var(--nebula-1),var(--nebula-2));
+    box-shadow:0 6px 20px rgba(198,41,125,0.35);
+    margin-top:20px; width:100%;
+  }
+  .btn-ghost{
+    background:var(--glass); border:1px solid var(--glass-border);
+  }
+  .btn-done{
+    background:linear-gradient(135deg,#2ecf82,#1fae9e);
+    box-shadow:0 4px 16px rgba(46,207,130,0.3);
+    font-size:13.5px; padding:9px 16px;
+    white-space:nowrap;
+  }
+
+  /* ---------- task item ---------- */
+  .task-list{ display:flex; flex-direction:column; gap:12px; }
+  .task-card{
+    display:flex; align-items:center; gap:14px; padding:18px 20px;
+    animation:rise .4s cubic-bezier(.2,.8,.2,1);
+  }
+  .task-body{flex:1; min-width:0;}
+  .task-body .subj{font-family:'Kanit',sans-serif; font-weight:500; font-size:14.5px; color:var(--cyan);}
+  .task-body .text{font-size:15px; margin-top:4px; line-height:1.5; word-break:break-word;}
+  .badge{
+    font-family:'JetBrains Mono',monospace; font-size:10.5px; padding:4px 9px; border-radius:8px;
+    letter-spacing:.03em; flex-shrink:0; white-space:nowrap;
+  }
+  .badge.pending{ background:rgba(255,107,139,0.18); color:var(--danger); border:1px solid rgba(255,107,139,0.35);}
+  .badge.complete{ background:rgba(46,207,130,0.18); color:#5be3a2; border:1px solid rgba(46,207,130,0.35);}
+
+  .credit{
+    text-align:center; margin-top:28px;
+    font-family:'JetBrains Mono',monospace; font-size:11px;
+    letter-spacing:.04em; color:var(--ink-dim); opacity:.6;
+  }
+
+  .empty-state{
+    text-align:center; padding:50px 20px; color:var(--ink-dim);
+  }
+  .empty-state .glyph{ font-size:38px; margin-bottom:14px; opacity:.7;}
+  .empty-state p{ font-size:14.5px; line-height:1.7; }
+
+  ::-webkit-scrollbar{ width:8px; }
+  ::-webkit-scrollbar-thumb{ background:rgba(255,255,255,0.15); border-radius:8px; }
+
+  @media (max-width:520px){
+    .day-row{ grid-template-columns:repeat(5,1fr); gap:6px; }
+    .day-pill{ padding:12px 2px; font-size:12.5px; }
+    .day-pill .sub{ display:none; }
+    .menu-tile{ padding:22px; gap:14px; }
+    .menu-tile .icon{ width:48px;height:48px;font-size:21px; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ animation-duration:0.001s !important; transition-duration:0.001s !important; }
+  }
+</style>
+</head>
+<body>
+
+<video id="galaxy-video" autoplay muted loop playsinline>
+  <source src="galaxy.mp4" type="video/mp4">
+</video>
+<canvas id="galaxy-canvas"></canvas>
+<div class="nebula-blob b1"></div>
+<div class="nebula-blob b2"></div>
+<div class="nebula-blob b3"></div>
+<div class="vignette"></div>
+
+<div class="app">
+  <header class="topbar">
+    <div class="back-btn" id="backBtn" onclick="goHome()">←</div>
+    <div class="brand">
+      <span class="eyebrow" id="eyebrow">ม.4/4 · ห้อง 434</span>
+      <h1 id="pageTitle">ตัวจัดการงาน</h1>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- HOME -->
+    <section class="screen active" id="screen-home">
+      <div class="home-grid">
+        <div class="menu-tile tasks glass" onclick="openTasks()">
+          <div class="icon">📋</div>
+          <div class="txt">
+            <h2>งาน</h2>
+            <p>ดูงานที่ต้องทำ แยกตามวัน</p>
+          </div>
+          <div class="count" id="pendingCount">0</div>
+        </div>
+        <div class="menu-tile subjects glass" onclick="openSubjects()">
+          <div class="icon">📚</div>
+          <div class="txt">
+            <h2>วิชา</h2>
+            <p>เพิ่มงานใหม่ตามตารางเรียน</p>
+          </div>
+          <div class="count">+</div>
+        </div>
+        <div class="menu-tile done glass" onclick="openDone()">
+          <div class="icon">✅</div>
+          <div class="txt">
+            <h2>ทำเสร็จแล้ว</h2>
+            <p>ประวัติงานที่ทำเรียบร้อย</p>
+          </div>
+          <div class="count" id="doneCount">0</div>
+        </div>
+      </div>
+      <div class="credit">This Website Made by Punyawat Papatsim &amp; Claude Sonet 5</div>
+    </section>
+
+    <!-- SUBJECTS: pick day -->
+    <section class="screen" id="screen-subjects-day">
+      <div class="section-title">เลือกวันที่จะเพิ่มงาน</div>
+      <div class="day-row" id="dayRowSubjects"></div>
+    </section>
+
+    <!-- SUBJECTS: pick subject -->
+    <section class="screen" id="screen-subjects-list">
+      <div class="section-title" id="subjListTitle">วิชาในวัน...</div>
+      <div class="subject-list" id="subjectList"></div>
+    </section>
+
+    <!-- SUBJECTS: task form -->
+    <section class="screen" id="screen-task-form">
+      <div class="glass form-card">
+        <div class="chosen" id="formDay">จันทร์</div>
+        <h2 id="formSubjectName">วิชา</h2>
+        <div class="teacher-line" id="formTeacherLine">ครูผู้สอน</div>
+        <div class="section-title" style="margin-bottom:8px;">งานที่ต้องทำ</div>
+        <textarea id="taskInput" placeholder="พิมพ์รายละเอียดงาน เช่น ทำแบบฝึกหัดหน้า 12-14 ข้อ 1-10..."></textarea>
+        <button class="btn btn-primary" onclick="submitTask()">✓ เสร็จสิ้น</button>
+      </div>
+    </section>
+
+    <!-- TASKS: pick day -->
+    <section class="screen" id="screen-tasks-day">
+      <div class="section-title">เลือกวันที่ต้องการดูงาน</div>
+      <div class="day-row" id="dayRowTasks"></div>
+    </section>
+
+    <!-- TASKS: list -->
+    <section class="screen" id="screen-tasks-list">
+      <div class="section-title" id="tasksListTitle">งานวัน...</div>
+      <div class="task-list" id="taskListEl"></div>
+    </section>
+
+    <!-- DONE -->
+    <section class="screen" id="screen-done">
+      <div class="section-title">งานที่ทำเสร็จแล้วทั้งหมด</div>
+      <div class="task-list" id="doneListEl"></div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+/* ============ ตารางเรียน ม.4/4 ห้อง 434 ภาคเรียนที่ 1/2569 ============ */
+const DAYS = [
+  {key:'mon', th:'จันทร์', short:'จ.'},
+  {key:'tue', th:'อังคาร', short:'อ.'},
+  {key:'wed', th:'พุธ',    short:'พ.'},
+  {key:'thu', th:'พฤหัสฯ', short:'พฤ.'},
+  {key:'fri', th:'ศุกร์',  short:'ศ.'},
+];
+
+const TIMES = {1:'08.41-09.30',2:'09.31-10.20',3:'10.21-11.10',4:'11.11-12.00',6:'12.51-13.40',7:'13.41-14.30',8:'14.31-15.20',9:'15.21-16.10'};
+
+const SCHEDULE = {
+  mon: [
+    {p:1, code:'อ31251', name:'ภาษาอังกฤษ', teacher:'ครูวันเพ็ญ', room:'712'},
+    {p:2, code:'ศ31101', name:'ศิลปะ', teacher:'ครูบุญฤทธิ์', room:''},
+    {p:3, code:'ว30107', name:'วิทยาศาสตร์', teacher:'ครูพิมพ์พัช', room:'841'},
+    {p:4, code:'ว30107', name:'วิทยาศาสตร์', teacher:'ครูพิมพ์พัช', room:'841'},
+    {p:6, code:'ว30103', name:'วิทยาศาสตร์', teacher:'ครูเสรี', room:'434'},
+    {p:7, code:'-', name:'แนะแนว', teacher:'ครูวรเศรษฐ์', room:'434'},
+    {p:8, code:'ค31101', name:'คณิตศาสตร์', teacher:'ครูรณกร', room:'434'},
+    {p:9, code:'ว30101', name:'วิทยาศาสตร์', teacher:'ครูดรุณ', room:'244'},
+  ],
+  tue: [
+    {p:1, code:'อ31101', name:'ภาษาอังกฤษ', teacher:'ครูหทัยชนก', room:'434'},
+    {p:2, code:'ค31201', name:'คณิตศาสตร์', teacher:'ครูรณกร', room:'434'},
+    {p:3, code:'ค31201', name:'คณิตศาสตร์', teacher:'ครูรณกร', room:'434'},
+    {p:4, code:'ท31101', name:'ภาษาไทย', teacher:'ครูอาริสา', room:'434'},
+    {p:6, code:'อ31203', name:'ภาษาอังกฤษ', teacher:'ครู KC', room:'434'},
+    {p:7, code:'ว30102', name:'วิทยาศาสตร์', teacher:'ครูชูเชิด', room:'231'},
+    {p:8, code:'-', name:'ชุมนุม', teacher:'', room:''},
+    {p:9, code:'อ31251', name:'ภาษาอังกฤษ', teacher:'ครู Nikka', room:'434'},
+  ],
+  wed: [
+    {p:1, code:'อ30201', name:'ภาษาอังกฤษ', teacher:'ครู Teacher', room:'434'},
+    {p:2, code:'ค31201', name:'คณิตศาสตร์', teacher:'ครูรณกร', room:'434'},
+    {p:3, code:'ว30103', name:'วิทยาศาสตร์', teacher:'ครูเสรี', room:'254'},
+    {p:4, code:'ว30103', name:'วิทยาศาสตร์', teacher:'ครูเสรี', room:'254'},
+    {p:6, code:'I30201', name:'IS (การศึกษาค้นคว้า)', teacher:'ครูยศวริศ', room:'434'},
+    {p:7, code:'I30201', name:'IS (การศึกษาค้นคว้า)', teacher:'ครูยศวริศ', room:'434'},
+    {p:8, code:'ว30105', name:'วิทยาศาสตร์', teacher:'ครูอานนท์', room:'251'},
+    {p:9, code:'ว30105', name:'วิทยาศาสตร์', teacher:'ครูอานนท์', room:'251'},
+  ],
+  thu: [
+    {p:1, code:'อ31203', name:'ภาษาอังกฤษ', teacher:'ครู KC', room:'434'},
+    {p:2, code:'อ30201', name:'ภาษาอังกฤษ', teacher:'ครู Teacher', room:'434'},
+    {p:3, code:'อ30249', name:'ภาษาอังกฤษ', teacher:'ครูพรพรรณ', room:'434'},
+    {p:4, code:'ส31101', name:'สังคมศึกษา', teacher:'ครูอธิษฐาน', room:'434'},
+    {p:6, code:'ง31101', name:'การงานอาชีพ', teacher:'ครูใหม่', room:'434'},
+    {p:7, code:'ว30102', name:'วิทยาศาสตร์', teacher:'ครูชูเชิด', room:'231'},
+    {p:8, code:'ว30102', name:'วิทยาศาสตร์', teacher:'ครูชูเชิด', room:'231'},
+    {p:9, code:'ค31201', name:'คณิตศาสตร์', teacher:'ครูรณกร', room:'434'},
+  ],
+  fri: [
+    {p:1, code:'ว30101', name:'วิทยาศาสตร์', teacher:'ครูดรุณ', room:'243'},
+    {p:2, code:'ว30101', name:'วิทยาศาสตร์', teacher:'ครูดรุณ', room:'243'},
+    {p:3, code:'พ31101', name:'สุขศึกษา/พลศึกษา', teacher:'ครูอ่อนศรี (สระน้ำ)', room:''},
+    {p:4, code:'อ30249', name:'ภาษาอังกฤษ', teacher:'ครูพรพรรณ', room:'434'},
+    {p:6, code:'ส31101', name:'สังคมศึกษา', teacher:'ครูอธิษฐาน', room:'434'},
+    {p:7, code:'ค31101', name:'คณิตศาสตร์', teacher:'ครูรณกร', room:'434'},
+    {p:8, code:'อ31101', name:'ภาษาอังกฤษ', teacher:'ครูหทัยชนก', room:'434'},
+    {p:9, code:'ท31101', name:'ภาษาไทย', teacher:'ครูอาริสา', room:'434'},
+  ],
+};
+
+/* ============ state (in-memory, resets on page reload) ============ */
+let tasks = [];      // {id, dayKey, dayTh, subjectName, code, teacher, text, done}
+let taskIdSeq = 1;
+let ctx = {};         // navigation context
+
+/* ============ navigation ============ */
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.getElementById('backBtn').style.display = (id==='screen-home') ? 'none' : 'flex';
+}
+function goHome(){
+  renderCounts();
+  showScreen('screen-home');
+  document.getElementById('pageTitle').textContent = 'ตัวจัดการงาน';
+}
+
+function openSubjects(){
+  document.getElementById('pageTitle').textContent = 'วิชา';
+  renderDayRow('dayRowSubjects', (dayKey)=>{ ctx.subjDay=dayKey; renderSubjectList(dayKey); showScreen('screen-subjects-list'); });
+  showScreen('screen-subjects-day');
+}
+
+function renderSubjectList(dayKey){
+  const day = DAYS.find(d=>d.key===dayKey);
+  document.getElementById('subjListTitle').textContent = `วิชาในวัน${day.th}`;
+  const wrap = document.getElementById('subjectList');
+  wrap.innerHTML = '';
+  SCHEDULE[dayKey].forEach(subj=>{
+    const el = document.createElement('div');
+    el.className = 'subject-card glass';
+    el.innerHTML = `
+      <div class="period-tag">คาบ ${subj.p}</div>
+      <div class="subject-info">
+        <div class="name">${subj.name}</div>
+        <div class="meta"><span class="n">${TIMES[subj.p]||''}</span> · ${subj.teacher||'-'} ${subj.room? '· ห้อง '+subj.room : ''}</div>
+      </div>
+      <div class="chevron">›</div>`;
+    el.onclick = ()=>openTaskForm(dayKey, subj);
+    wrap.appendChild(el);
+  });
+}
+
+function openTaskForm(dayKey, subj){
+  const day = DAYS.find(d=>d.key===dayKey);
+  ctx.formDay = dayKey; ctx.formSubj = subj;
+  document.getElementById('pageTitle').textContent = 'เพิ่มงาน';
+  document.getElementById('formDay').textContent = `วัน${day.th} · คาบ ${subj.p}`;
+  document.getElementById('formSubjectName').textContent = subj.name;
+  document.getElementById('formTeacherLine').textContent = subj.teacher ? `ผู้สอน: ${subj.teacher}` : '';
+  document.getElementById('taskInput').value = '';
+  showScreen('screen-task-form');
+  setTimeout(()=>document.getElementById('taskInput').focus(), 300);
+}
+
+function submitTask(){
+  const text = document.getElementById('taskInput').value.trim();
+  if(!text){
+    const ta = document.getElementById('taskInput');
+    ta.style.borderColor = 'var(--danger)';
+    ta.placeholder = 'กรุณาพิมพ์งานก่อนกดเสร็จสิ้น';
+    setTimeout(()=>ta.style.borderColor='',1000);
+    return;
+  }
+  const day = DAYS.find(d=>d.key===ctx.formDay);
+  tasks.push({
+    id: taskIdSeq++,
+    dayKey: ctx.formDay,
+    dayTh: day.th,
+    subjectName: ctx.formSubj.name,
+    period: ctx.formSubj.p,
+    teacher: ctx.formSubj.teacher,
+    text,
+    done:false
+  });
+  goHome();
+}
+
+function openTasks(){
+  document.getElementById('pageTitle').textContent = 'งาน';
+  renderDayRow('dayRowTasks', (dayKey)=>{ renderTaskList(dayKey); showScreen('screen-tasks-list'); }, true);
+  showScreen('screen-tasks-day');
+}
+
+function renderTaskList(dayKey){
+  const day = DAYS.find(d=>d.key===dayKey);
+  document.getElementById('tasksListTitle').textContent = `งานวัน${day.th}`;
+  const wrap = document.getElementById('taskListEl');
+  wrap.innerHTML = '';
+  const list = tasks.filter(t=>t.dayKey===dayKey && !t.done);
+  if(list.length===0){
+    wrap.innerHTML = `<div class="glass empty-state"><div class="glyph">🌙</div><p>ยังไม่มีงานที่ค้างอยู่ในวัน${day.th}<br>ลองเพิ่มงานใหม่ได้ที่เมนู "วิชา"</p></div>`;
+    return;
+  }
+  list.forEach(t=> wrap.appendChild(renderTaskCard(t)) );
+}
+
+function renderTaskCard(t){
+  const el = document.createElement('div');
+  el.className = 'task-card glass';
+  el.innerHTML = `
+    <div class="task-body">
+      <div class="subj">${t.subjectName} · คาบ ${t.period}</div>
+      <div class="text">${escapeHtml(t.text)}</div>
+    </div>
+    ${t.done
+      ? `<span class="badge complete">ทำเรียบร้อย</span>`
+      : `<span class="badge pending">ยังไม่เสร็จ</span><button class="btn btn-done">เสร็จสิ้นงาน</button>`
+    }`;
+  if(!t.done){
+    el.querySelector('.btn-done').onclick = ()=>{ completeTask(t.id); };
+  }
+  return el;
+}
+
+function completeTask(id){
+  const t = tasks.find(x=>x.id===id);
+  if(t){ t.done = true; }
+  renderTaskList(ctx.currentTaskDay);
+  renderCounts();
+}
+
+function openDone(){
+  document.getElementById('pageTitle').textContent = 'ทำเสร็จแล้ว';
+  const wrap = document.getElementById('doneListEl');
+  wrap.innerHTML = '';
+  const list = tasks.filter(t=>t.done);
+  if(list.length===0){
+    wrap.innerHTML = `<div class="glass empty-state"><div class="glyph">✨</div><p>ยังไม่มีงานที่ทำเสร็จ<br>เมื่อกด "เสร็จสิ้นงาน" รายการจะย้ายมาที่นี่</p></div>`;
+  } else {
+    list.slice().reverse().forEach(t=>{
+      const el = renderTaskCard(t);
+      const label = document.createElement('div');
+      label.className = 'chosen';
+      label.style.marginBottom = '-6px';
+      wrap.appendChild(el);
+    });
+  }
+  showScreen('screen-done');
+}
+
+function renderDayRow(containerId, onPick, showBadge){
+  const wrap = document.getElementById(containerId);
+  wrap.innerHTML = '';
+  DAYS.forEach(d=>{
+    const el = document.createElement('div');
+    const pendingCount = tasks.filter(t=>t.dayKey===d.key && !t.done).length;
+    el.className = 'day-pill glass' + (showBadge && pendingCount>0 ? ' has-badge' : '');
+    el.innerHTML = `${d.short}${showBadge && pendingCount>0 ? '<span class="dot"></span>' : ''}<span class="sub">${d.th}</span>`;
+    el.onclick = ()=>{
+      document.querySelectorAll('#'+containerId+' .day-pill').forEach(p=>p.classList.remove('selected'));
+      el.classList.add('selected');
+      ctx.currentTaskDay = d.key;
+      setTimeout(()=>onPick(d.key), 150);
+    };
+    wrap.appendChild(el);
+  });
+}
+
+function renderCounts(){
+  document.getElementById('pendingCount').textContent = tasks.filter(t=>!t.done).length;
+  document.getElementById('doneCount').textContent = tasks.filter(t=>t.done).length;
+}
+
+function escapeHtml(s){
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+/* ============ ambient starfield ============ */
+(function(){
+  const canvas = document.getElementById('galaxy-canvas');
+  const c = canvas.getContext('2d');
+  let stars = [];
+  function resize(){
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    stars = [];
+    const count = Math.floor((canvas.width*canvas.height)/9000);
+    for(let i=0;i<count;i++){
+      stars.push({
+        x: Math.random()*canvas.width,
+        y: Math.random()*canvas.height,
+        r: Math.random()*1.3+0.2,
+        tw: Math.random()*Math.PI*2,
+        speed: Math.random()*0.015+0.005,
+        drift: Math.random()*0.06-0.03
+      });
+    }
+  }
+  function tick(){
+    c.clearRect(0,0,canvas.width,canvas.height);
+    for(const s of stars){
+      s.tw += s.speed;
+      s.x += s.drift;
+      if(s.x<0) s.x=canvas.width; if(s.x>canvas.width) s.x=0;
+      const alpha = 0.35 + Math.sin(s.tw)*0.35;
+      c.beginPath();
+      c.arc(s.x, s.y, s.r, 0, Math.PI*2);
+      c.fillStyle = `rgba(243,240,255,${Math.max(0,alpha)})`;
+      c.fill();
+    }
+    requestAnimationFrame(tick);
+  }
+  window.addEventListener('resize', resize);
+  resize(); tick();
+})();
+
+renderCounts();
+</script>
+</body>
+</html>
