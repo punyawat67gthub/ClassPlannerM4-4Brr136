@@ -107,6 +107,15 @@
     padding-bottom:8px; border-bottom:1px solid var(--glass-border);
     word-break:break-all;
   }
+  .user-menu-manage{
+    font-family:'Kanit',sans-serif; font-weight:500; font-size:14px;
+    background:rgba(79,227,208,0.14); color:var(--cyan);
+    border:1px solid rgba(79,227,208,0.3); border-radius:10px;
+    padding:9px 12px; cursor:pointer;
+    transition:transform .18s ease, background .18s ease;
+  }
+  .user-menu-manage:hover{ transform:scale(1.03); background:rgba(79,227,208,0.22); }
+  .user-menu-manage:active{ transform:scale(0.95); }
   .user-menu-logout{
     font-family:'Kanit',sans-serif; font-weight:500; font-size:14px;
     background:rgba(255,107,139,0.14); color:var(--danger);
@@ -326,6 +335,16 @@
     font-size:13.5px; padding:9px 16px;
     white-space:nowrap;
   }
+  .btn-danger{
+    background:rgba(255,107,139,0.16); color:var(--danger);
+    border:1px solid rgba(255,107,139,0.35);
+    font-size:12.5px; padding:8px 14px;
+  }
+  .btn-small{ font-size:12.5px; padding:8px 14px; }
+  .admin-user-card{ align-items:center; }
+  .admin-user-card .subject-info .name{ font-family:'JetBrains Mono',monospace; font-size:14.5px; }
+  .admin-actions{ display:flex; flex-direction:column; gap:6px; align-items:flex-end; flex-shrink:0; }
+  .admin-actions-row{ display:flex; gap:6px; }
 
   /* ---------- task item ---------- */
   .task-list{ display:flex; flex-direction:column; gap:12px; }
@@ -400,7 +419,7 @@
 
 <div class="app" id="mainApp" style="display:none;">
   <header class="topbar">
-    <div class="back-btn" id="backBtn" onclick="goHome()">←</div>
+    <div class="back-btn" id="backBtn" onclick="handleBack()">←</div>
     <div class="brand">
       <span class="eyebrow" id="eyebrow">ม.4/4 · ห้อง 434</span>
       <h1 id="pageTitle">ตัวจัดการงาน</h1>
@@ -411,6 +430,7 @@
       </div>
       <div class="user-menu" id="userMenu">
         <div class="user-menu-name" id="menuUsername">ผู้ใช้</div>
+        <button class="user-menu-manage" id="adminMenuBtn" style="display:none;" onclick="openAdmin()">🛠 จัดการระบบ</button>
         <button class="user-menu-logout" onclick="logout()">ออกจากระบบ</button>
       </div>
     </div>
@@ -491,6 +511,18 @@
       <div class="task-list" id="doneListEl"></div>
     </section>
 
+    <!-- ADMIN: user list -->
+    <section class="screen" id="screen-admin">
+      <div class="section-title">ผู้ใช้ทั้งหมดในเครื่องนี้</div>
+      <div class="subject-list" id="adminUserList"></div>
+    </section>
+
+    <!-- ADMIN: single user's tasks -->
+    <section class="screen" id="screen-admin-user">
+      <div class="section-title" id="adminUserTitle">งานของผู้ใช้...</div>
+      <div class="task-list" id="adminTaskList"></div>
+    </section>
+
   </main>
 </div>
 <!-- /#mainApp -->
@@ -565,6 +597,10 @@ let tasks = [];      // {id, dayKey, dayTh, subjectName, code, teacher, text, do
 let taskIdSeq = 1;
 let ctx = {};         // navigation context
 let authMode = 'login';
+let adminTasks = [];  // tasks of the user currently being viewed in the admin panel
+
+const ADMIN_USERNAME = 'Punyawat14';
+function isAdmin(){ return getSession() === ADMIN_USERNAME; }
 
 /* ============ storage helpers (per-browser, per-username) ============ */
 function loadUsers(){
@@ -641,6 +677,7 @@ function enterApp(username){
   document.getElementById('authScreen').style.display = 'none';
   document.getElementById('mainApp').style.display = 'flex';
   document.getElementById('menuUsername').textContent = username;
+  document.getElementById('adminMenuBtn').style.display = isAdmin() ? 'block' : 'none';
   goHome();
 }
 function logout(){
@@ -671,6 +708,129 @@ function goHome(){
   renderCounts();
   showScreen('screen-home');
   document.getElementById('pageTitle').textContent = 'ตัวจัดการงาน';
+}
+function handleBack(){
+  const active = document.querySelector('.screen.active');
+  if(active && active.id === 'screen-admin-user'){
+    openAdmin();
+  } else {
+    goHome();
+  }
+}
+
+/* ============ admin panel (Punyawat14 only) ============ */
+function openAdmin(){
+  if(!isAdmin()) return;
+  document.getElementById('userMenu').classList.remove('open');
+  document.getElementById('pageTitle').textContent = 'จัดการระบบ';
+  const users = loadUsers();
+  const usernames = Object.keys(users);
+  const wrap = document.getElementById('adminUserList');
+  wrap.innerHTML = '';
+  if(usernames.length === 0){
+    wrap.innerHTML = `<div class="glass empty-state"><div class="glyph">👤</div><p>ยังไม่มีผู้ใช้ในเครื่องนี้</p></div>`;
+  } else {
+    usernames.forEach(uname=>{
+      const uTasks = loadTasksFor(uname);
+      const pending = uTasks.filter(t=>!t.done).length;
+      const done = uTasks.filter(t=>t.done).length;
+      const el = document.createElement('div');
+      el.className = 'subject-card admin-user-card glass';
+      el.innerHTML = `
+        <div class="period-tag">${uname===ADMIN_USERNAME?'ADMIN':'USER'}</div>
+        <div class="subject-info">
+          <div class="name">${escapeHtml(uname)}</div>
+          <div class="meta">ค้าง ${pending} งาน · เสร็จแล้ว ${done} งาน</div>
+        </div>
+        <div class="admin-actions">
+          <button class="btn btn-ghost btn-small" onclick="openAdminUser('${escapeHtml(uname)}')">ดู/แก้ไข</button>
+          ${uname!==ADMIN_USERNAME ? `<button class="btn btn-danger" onclick="adminDeleteUser('${escapeHtml(uname)}')">ลบผู้ใช้</button>` : ''}
+        </div>`;
+      wrap.appendChild(el);
+    });
+  }
+  showScreen('screen-admin');
+}
+
+function openAdminUser(username){
+  if(!isAdmin()) return;
+  ctx.adminUser = username;
+  adminTasks = loadTasksFor(username);
+  document.getElementById('pageTitle').textContent = 'จัดการระบบ';
+  document.getElementById('adminUserTitle').textContent = `งานของ ${username}`;
+  renderAdminTaskList();
+  showScreen('screen-admin-user');
+}
+
+function saveAdminTasks(){
+  if(!ctx.adminUser) return;
+  localStorage.setItem('cp_tasks_'+ctx.adminUser, JSON.stringify(adminTasks));
+  // keep the logged-in admin's own view in sync if managing their own account
+  if(ctx.adminUser === getSession()){ tasks = adminTasks; }
+}
+
+function renderAdminTaskList(){
+  const wrap = document.getElementById('adminTaskList');
+  wrap.innerHTML = '';
+  if(adminTasks.length === 0){
+    wrap.innerHTML = `<div class="glass empty-state"><div class="glyph">🗂</div><p>ผู้ใช้นี้ยังไม่มีงานที่บันทึกไว้</p></div>`;
+    return;
+  }
+  adminTasks.forEach(t=>{
+    const el = document.createElement('div');
+    el.className = 'task-card glass';
+    el.innerHTML = `
+      <div class="task-body">
+        <div class="subj">${escapeHtml(t.subjectName)} · คาบ ${t.period} · วัน${t.dayTh}</div>
+        <div class="text">${escapeHtml(t.text)}</div>
+      </div>
+      <div class="admin-actions">
+        <span class="badge ${t.done?'complete':'pending'}">${t.done?'ทำเรียบร้อย':'ยังไม่เสร็จ'}</span>
+        <div class="admin-actions-row">
+          <button class="btn btn-ghost btn-small" onclick="adminToggleDone(${t.id})">${t.done?'ยกเลิกเสร็จ':'ทำเสร็จ'}</button>
+          <button class="btn btn-ghost btn-small" onclick="adminEditTask(${t.id})">แก้ไข</button>
+          <button class="btn btn-danger" onclick="adminDeleteTask(${t.id})">ลบ</button>
+        </div>
+      </div>`;
+    wrap.appendChild(el);
+  });
+}
+
+function adminToggleDone(id){
+  const t = adminTasks.find(x=>x.id===id);
+  if(!t) return;
+  t.done = !t.done;
+  saveAdminTasks();
+  renderAdminTaskList();
+}
+
+function adminEditTask(id){
+  const t = adminTasks.find(x=>x.id===id);
+  if(!t) return;
+  const newText = window.prompt('แก้ไขข้อความงาน:', t.text);
+  if(newText === null) return;
+  const trimmed = newText.trim();
+  if(!trimmed) return;
+  t.text = trimmed;
+  saveAdminTasks();
+  renderAdminTaskList();
+}
+
+function adminDeleteTask(id){
+  if(!window.confirm('ลบงานนี้ถาวรใช่หรือไม่?')) return;
+  adminTasks = adminTasks.filter(t=>t.id !== id);
+  saveAdminTasks();
+  renderAdminTaskList();
+}
+
+function adminDeleteUser(username){
+  if(username === ADMIN_USERNAME) return;
+  if(!window.confirm(`ลบบัญชี "${username}" พร้อมงานทั้งหมดของผู้ใช้นี้ถาวร ใช่หรือไม่?`)) return;
+  const users = loadUsers();
+  delete users[username];
+  saveUsers(users);
+  localStorage.removeItem('cp_tasks_'+username);
+  openAdmin();
 }
 
 function openSubjects(){
