@@ -73,6 +73,86 @@
     display:flex; align-items:center; gap:14px;
     margin-bottom:38px;
   }
+  .brand{ flex:1; min-width:0; }
+
+  /* ---------- hamburger + user menu ---------- */
+  .menu-wrap{ position:relative; }
+  .hamburger-btn{
+    width:42px;height:42px;border-radius:14px;
+    background:var(--glass); border:1px solid var(--glass-border);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;
+    cursor:pointer;
+    backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+    transition:transform .18s ease, background .18s ease;
+  }
+  .hamburger-btn span{ width:18px;height:2px;background:var(--ink); border-radius:2px; }
+  .hamburger-btn:hover{ transform:scale(1.1); background:var(--glass-strong); }
+  .hamburger-btn:active{ transform:scale(0.9); }
+  .user-menu{
+    position:absolute; top:52px; right:0; min-width:190px;
+    background:rgba(15,14,28,0.75);
+    border:1px solid var(--glass-border); border-radius:16px;
+    backdrop-filter:blur(24px) saturate(140%); -webkit-backdrop-filter:blur(24px) saturate(140%);
+    box-shadow:0 12px 36px rgba(0,0,0,0.5);
+    padding:14px;
+    display:none;
+    flex-direction:column; gap:10px;
+    z-index:20;
+    opacity:0; transform:translateY(-8px);
+    transition:opacity .18s ease, transform .18s ease;
+  }
+  .user-menu.open{ display:flex; opacity:1; transform:translateY(0); }
+  .user-menu-name{
+    font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--ink-dim);
+    padding-bottom:8px; border-bottom:1px solid var(--glass-border);
+    word-break:break-all;
+  }
+  .user-menu-logout{
+    font-family:'Kanit',sans-serif; font-weight:500; font-size:14px;
+    background:rgba(255,107,139,0.14); color:var(--danger);
+    border:1px solid rgba(255,107,139,0.3); border-radius:10px;
+    padding:9px 12px; cursor:pointer;
+    transition:transform .18s ease, background .18s ease;
+  }
+  .user-menu-logout:hover{ transform:scale(1.03); background:rgba(255,107,139,0.22); }
+  .user-menu-logout:active{ transform:scale(0.95); }
+
+  /* ---------- auth screen ---------- */
+  #authScreen{ justify-content:center; }
+  .auth-wrap{
+    width:100%; max-width:360px;
+    padding:36px 30px;
+    display:flex; flex-direction:column; gap:12px;
+    align-items:stretch;
+  }
+  .auth-title{
+    font-family:'Kanit',sans-serif; font-weight:600; font-size:24px; margin-top:4px;
+  }
+  .auth-sub{ font-size:13px; color:var(--ink-dim); margin-bottom:8px; line-height:1.6; }
+  .auth-tabs{
+    display:flex; gap:8px; background:rgba(255,255,255,0.04);
+    border:1px solid var(--glass-border); border-radius:12px; padding:4px; margin-bottom:6px;
+  }
+  .auth-tab{
+    flex:1; border:none; background:transparent; color:var(--ink-dim);
+    font-family:'Kanit',sans-serif; font-weight:500; font-size:13.5px;
+    padding:9px 0; border-radius:9px; cursor:pointer;
+    transition:background .2s ease, color .2s ease;
+  }
+  .auth-tab.active{ background:linear-gradient(135deg,var(--nebula-1),var(--nebula-2)); color:var(--ink); }
+  .auth-input{
+    width:100%; background:rgba(255,255,255,0.05); border:1px solid var(--glass-border);
+    border-radius:12px; padding:13px 15px; color:var(--ink);
+    font-family:'Sarabun',sans-serif; font-size:14.5px;
+    outline:none; transition:border-color .2s ease, background .2s ease;
+  }
+  .auth-input:focus{ border-color:var(--cyan); background:rgba(255,255,255,0.08); }
+  .auth-input::placeholder{ color:var(--ink-dim); }
+  .auth-error{
+    font-size:12.5px; color:var(--danger); min-height:0; line-height:1.5;
+    display:none;
+  }
+  .auth-error.show{ display:block; }
   .back-btn{
     display:none;
     width:42px;height:42px;border-radius:50%;
@@ -302,12 +382,37 @@
 <div class="nebula-blob b3"></div>
 <div class="vignette"></div>
 
-<div class="app">
+<div class="app" id="authScreen">
+  <div class="auth-wrap glass">
+    <span class="eyebrow">ม.4/4 · ห้อง 434</span>
+    <h1 class="auth-title">ตัวจัดการงาน</h1>
+    <p class="auth-sub">เข้าสู่ระบบเพื่อบันทึกงานของคุณไว้ในเครื่องนี้</p>
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tabLogin" onclick="switchAuthTab('login')">เข้าสู่ระบบ</button>
+      <button class="auth-tab" id="tabRegister" onclick="switchAuthTab('register')">สมัครสมาชิก</button>
+    </div>
+    <div class="auth-error" id="authError"></div>
+    <input class="auth-input" type="text" id="authUsername" placeholder="ชื่อผู้ใช้" autocomplete="username">
+    <input class="auth-input" type="password" id="authPassword" placeholder="รหัสผ่าน" autocomplete="current-password" onkeydown="if(event.key==='Enter')handleAuthSubmit()">
+    <button class="btn btn-primary" id="authSubmitBtn" onclick="handleAuthSubmit()">เข้าสู่ระบบ</button>
+  </div>
+</div>
+
+<div class="app" id="mainApp" style="display:none;">
   <header class="topbar">
     <div class="back-btn" id="backBtn" onclick="goHome()">←</div>
     <div class="brand">
       <span class="eyebrow" id="eyebrow">ม.4/4 · ห้อง 434</span>
       <h1 id="pageTitle">ตัวจัดการงาน</h1>
+    </div>
+    <div class="menu-wrap">
+      <div class="hamburger-btn" id="hamburgerBtn" onclick="toggleUserMenu()">
+        <span></span><span></span><span></span>
+      </div>
+      <div class="user-menu" id="userMenu">
+        <div class="user-menu-name" id="menuUsername">ผู้ใช้</div>
+        <button class="user-menu-logout" onclick="logout()">ออกจากระบบ</button>
+      </div>
     </div>
   </header>
 
@@ -388,6 +493,7 @@
 
   </main>
 </div>
+<!-- /#mainApp -->
 
 <script>
 /* ============ ตารางเรียน ม.4/4 ห้อง 434 ภาคเรียนที่ 1/2569 ============ */
@@ -454,10 +560,106 @@ const SCHEDULE = {
   ],
 };
 
-/* ============ state (in-memory, resets on page reload) ============ */
+/* ============ state ============ */
 let tasks = [];      // {id, dayKey, dayTh, subjectName, code, teacher, text, done}
 let taskIdSeq = 1;
 let ctx = {};         // navigation context
+let authMode = 'login';
+
+/* ============ storage helpers (per-browser, per-username) ============ */
+function loadUsers(){
+  try{ return JSON.parse(localStorage.getItem('cp_users') || '{}'); }
+  catch(e){ return {}; }
+}
+function saveUsers(users){ localStorage.setItem('cp_users', JSON.stringify(users)); }
+
+// Not real cryptographic security — this is a client-only static site with
+// no server, so this just keeps casual users out of each other's task lists.
+function simpleHash(str){
+  let h = 0;
+  for(let i=0;i<str.length;i++){ h = (h<<5) - h + str.charCodeAt(i); h |= 0; }
+  return h.toString(36);
+}
+
+function getSession(){ return localStorage.getItem('cp_session'); }
+function setSession(username){ localStorage.setItem('cp_session', username); }
+function clearSession(){ localStorage.removeItem('cp_session'); }
+
+function loadTasksFor(username){
+  try{ return JSON.parse(localStorage.getItem('cp_tasks_'+username) || '[]'); }
+  catch(e){ return []; }
+}
+function saveTasks(){
+  const u = getSession();
+  if(!u) return;
+  localStorage.setItem('cp_tasks_'+u, JSON.stringify(tasks));
+}
+
+/* ============ auth ============ */
+function switchAuthTab(mode){
+  authMode = mode;
+  document.getElementById('tabLogin').classList.toggle('active', mode==='login');
+  document.getElementById('tabRegister').classList.toggle('active', mode==='register');
+  document.getElementById('authSubmitBtn').textContent = mode==='login' ? 'เข้าสู่ระบบ' : 'สมัครสมาชิก';
+  showAuthError('');
+}
+function showAuthError(msg){
+  const el = document.getElementById('authError');
+  el.textContent = msg;
+  el.classList.toggle('show', !!msg);
+}
+function handleAuthSubmit(){
+  const username = document.getElementById('authUsername').value.trim();
+  const password = document.getElementById('authPassword').value;
+  if(!username || !password){ showAuthError('กรุณากรอกชื่อผู้ใช้และรหัสผ่านให้ครบ'); return; }
+
+  const users = loadUsers();
+  if(authMode === 'register'){
+    if(users[username]){ showAuthError('มีชื่อผู้ใช้นี้อยู่แล้ว ลองชื่ออื่นหรือเข้าสู่ระบบแทน'); return; }
+    users[username] = simpleHash(password);
+    saveUsers(users);
+    localStorage.setItem('cp_tasks_'+username, '[]');
+    loginAs(username);
+  } else {
+    if(!users[username] || users[username] !== simpleHash(password)){
+      showAuthError('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
+      return;
+    }
+    loginAs(username);
+  }
+}
+function loginAs(username){
+  setSession(username);
+  tasks = loadTasksFor(username);
+  taskIdSeq = tasks.reduce((max,t)=>Math.max(max, t.id), 0) + 1;
+  document.getElementById('authUsername').value = '';
+  document.getElementById('authPassword').value = '';
+  showAuthError('');
+  enterApp(username);
+}
+function enterApp(username){
+  document.getElementById('authScreen').style.display = 'none';
+  document.getElementById('mainApp').style.display = 'flex';
+  document.getElementById('menuUsername').textContent = username;
+  goHome();
+}
+function logout(){
+  clearSession();
+  tasks = [];
+  document.getElementById('userMenu').classList.remove('open');
+  document.getElementById('mainApp').style.display = 'none';
+  document.getElementById('authScreen').style.display = 'flex';
+  switchAuthTab('login');
+}
+function toggleUserMenu(){
+  document.getElementById('userMenu').classList.toggle('open');
+}
+document.addEventListener('click', (e)=>{
+  const wrap = document.querySelector('.menu-wrap');
+  if(wrap && !wrap.contains(e.target)){
+    document.getElementById('userMenu').classList.remove('open');
+  }
+});
 
 /* ============ navigation ============ */
 function showScreen(id){
@@ -529,6 +731,7 @@ function submitTask(){
     text,
     done:false
   });
+  saveTasks();
   goHome();
 }
 
@@ -572,6 +775,7 @@ function renderTaskCard(t){
 function completeTask(id){
   const t = tasks.find(x=>x.id===id);
   if(t){ t.done = true; }
+  saveTasks();
   renderTaskList(ctx.currentTaskDay);
   renderCounts();
 }
@@ -663,7 +867,15 @@ function escapeHtml(s){
   resize(); tick();
 })();
 
-renderCounts();
+const savedUser = getSession();
+if(savedUser){
+  tasks = loadTasksFor(savedUser);
+  taskIdSeq = tasks.reduce((max,t)=>Math.max(max, t.id), 0) + 1;
+  enterApp(savedUser);
+} else {
+  document.getElementById('authScreen').style.display = 'flex';
+  document.getElementById('mainApp').style.display = 'none';
+}
 </script>
 </body>
 </html>
