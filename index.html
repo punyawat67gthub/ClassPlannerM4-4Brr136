@@ -107,15 +107,6 @@
     padding-bottom:8px; border-bottom:1px solid var(--glass-border);
     word-break:break-all;
   }
-  .user-menu-manage{
-    font-family:'Kanit',sans-serif; font-weight:500; font-size:14px;
-    background:rgba(79,227,208,0.14); color:var(--cyan);
-    border:1px solid rgba(79,227,208,0.3); border-radius:10px;
-    padding:9px 12px; cursor:pointer;
-    transition:transform .18s ease, background .18s ease;
-  }
-  .user-menu-manage:hover{ transform:scale(1.03); background:rgba(79,227,208,0.22); }
-  .user-menu-manage:active{ transform:scale(0.95); }
   .user-menu-logout{
     font-family:'Kanit',sans-serif; font-weight:500; font-size:14px;
     background:rgba(255,107,139,0.14); color:var(--danger);
@@ -341,10 +332,39 @@
     font-size:12.5px; padding:8px 14px;
   }
   .btn-small{ font-size:12.5px; padding:8px 14px; }
-  .admin-user-card{ align-items:center; }
-  .admin-user-card .subject-info .name{ font-family:'JetBrains Mono',monospace; font-size:14.5px; }
-  .admin-actions{ display:flex; flex-direction:column; gap:6px; align-items:flex-end; flex-shrink:0; }
-  .admin-actions-row{ display:flex; gap:6px; }
+
+  /* ---------- folders (ทำเสร็จแล้ว) ---------- */
+  .folder-grid{
+    display:grid; grid-template-columns:repeat(2,1fr); gap:14px;
+  }
+  .folder-tile{
+    padding:20px 18px; cursor:pointer;
+    display:flex; flex-direction:column; gap:8px;
+    transition:transform .2s cubic-bezier(.2,.8,.2,1), border-color .2s ease;
+  }
+  .folder-tile:hover{ transform:translateY(-3px) scale(1.02); border-color:rgba(255,255,255,0.3); }
+  .folder-tile:active{ transform:translateY(-1px) scale(0.98); }
+  .folder-tile .folder-icon{ font-size:22px; }
+  .folder-tile .folder-name{ font-family:'Kanit',sans-serif; font-weight:500; font-size:15px; word-break:break-word; }
+  .folder-tile .folder-count{ font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--ink-dim); }
+  .folder-tile.new-folder{
+    align-items:center; justify-content:center; text-align:center;
+    border-style:dashed; border-color:rgba(255,255,255,0.25);
+    color:var(--ink-dim);
+  }
+  .folder-tile.new-folder:hover{ color:var(--ink); border-color:var(--cyan); }
+  .folder-header{
+    display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px;
+  }
+  .folder-header-actions{ display:flex; gap:8px; flex-shrink:0; }
+  .task-actions{ display:flex; flex-direction:column; gap:6px; align-items:flex-end; flex-shrink:0; }
+  .task-actions-row{ display:flex; gap:6px; }
+  .folder-select{
+    background:rgba(255,255,255,0.06); border:1px solid var(--glass-border);
+    color:var(--ink); border-radius:8px; padding:6px 8px;
+    font-family:'Sarabun',sans-serif; font-size:12.5px; outline:none;
+  }
+  .folder-select:focus{ border-color:var(--cyan); }
 
   /* ---------- task item ---------- */
   .task-list{ display:flex; flex-direction:column; gap:12px; }
@@ -430,7 +450,6 @@
       </div>
       <div class="user-menu" id="userMenu">
         <div class="user-menu-name" id="menuUsername">ผู้ใช้</div>
-        <button class="user-menu-manage" id="adminMenuBtn" style="display:none;" onclick="openAdmin()">🛠 จัดการระบบ</button>
         <button class="user-menu-logout" onclick="logout()">ออกจากระบบ</button>
       </div>
     </div>
@@ -505,22 +524,24 @@
       <div class="task-list" id="taskListEl"></div>
     </section>
 
-    <!-- DONE -->
+    <!-- DONE: folder browser -->
     <section class="screen" id="screen-done">
-      <div class="section-title">งานที่ทำเสร็จแล้วทั้งหมด</div>
-      <div class="task-list" id="doneListEl"></div>
+      <div class="section-title">จัดเก็บงานที่ทำเสร็จแล้วเป็นแฟ้ม</div>
+      <div class="folder-grid" id="folderGrid"></div>
+      <div class="section-title" style="margin-top:26px;">งานที่ยังไม่ได้จัดเก็บแฟ้ม</div>
+      <div class="task-list" id="unfiledListEl"></div>
     </section>
 
-    <!-- ADMIN: user list -->
-    <section class="screen" id="screen-admin">
-      <div class="section-title">ผู้ใช้ทั้งหมดในเครื่องนี้</div>
-      <div class="subject-list" id="adminUserList"></div>
-    </section>
-
-    <!-- ADMIN: single user's tasks -->
-    <section class="screen" id="screen-admin-user">
-      <div class="section-title" id="adminUserTitle">งานของผู้ใช้...</div>
-      <div class="task-list" id="adminTaskList"></div>
+    <!-- DONE: inside one folder -->
+    <section class="screen" id="screen-done-folder">
+      <div class="folder-header">
+        <div class="section-title" id="folderTitle" style="margin-bottom:0;">แฟ้ม...</div>
+        <div class="folder-header-actions">
+          <button class="btn btn-ghost btn-small" onclick="renameFolder()">แก้ไขชื่อ</button>
+          <button class="btn btn-danger" onclick="deleteFolder()">ลบแฟ้ม</button>
+        </div>
+      </div>
+      <div class="task-list" id="folderTaskListEl"></div>
     </section>
 
   </main>
@@ -593,14 +614,12 @@ const SCHEDULE = {
 };
 
 /* ============ state ============ */
-let tasks = [];      // {id, dayKey, dayTh, subjectName, code, teacher, text, done}
+let tasks = [];      // {id, dayKey, dayTh, subjectName, code, teacher, text, done, folderId}
 let taskIdSeq = 1;
 let ctx = {};         // navigation context
 let authMode = 'login';
-let adminTasks = [];  // tasks of the user currently being viewed in the admin panel
-
-const ADMIN_USERNAME = 'Punyawat14';
-function isAdmin(){ return getSession() === ADMIN_USERNAME; }
+let folders = [];     // {id, name}
+let folderIdSeq = 1;
 
 /* ============ storage helpers (per-browser, per-username) ============ */
 function loadUsers(){
@@ -629,6 +648,16 @@ function saveTasks(){
   const u = getSession();
   if(!u) return;
   localStorage.setItem('cp_tasks_'+u, JSON.stringify(tasks));
+}
+
+function loadFoldersFor(username){
+  try{ return JSON.parse(localStorage.getItem('cp_folders_'+username) || '[]'); }
+  catch(e){ return []; }
+}
+function saveFolders(){
+  const u = getSession();
+  if(!u) return;
+  localStorage.setItem('cp_folders_'+u, JSON.stringify(folders));
 }
 
 /* ============ auth ============ */
@@ -668,6 +697,8 @@ function loginAs(username){
   setSession(username);
   tasks = loadTasksFor(username);
   taskIdSeq = tasks.reduce((max,t)=>Math.max(max, t.id), 0) + 1;
+  folders = loadFoldersFor(username);
+  folderIdSeq = folders.reduce((max,f)=>Math.max(max, f.id), 0) + 1;
   document.getElementById('authUsername').value = '';
   document.getElementById('authPassword').value = '';
   showAuthError('');
@@ -677,12 +708,12 @@ function enterApp(username){
   document.getElementById('authScreen').style.display = 'none';
   document.getElementById('mainApp').style.display = 'flex';
   document.getElementById('menuUsername').textContent = username;
-  document.getElementById('adminMenuBtn').style.display = isAdmin() ? 'block' : 'none';
   goHome();
 }
 function logout(){
   clearSession();
   tasks = [];
+  folders = [];
   document.getElementById('userMenu').classList.remove('open');
   document.getElementById('mainApp').style.display = 'none';
   document.getElementById('authScreen').style.display = 'flex';
@@ -711,126 +742,143 @@ function goHome(){
 }
 function handleBack(){
   const active = document.querySelector('.screen.active');
-  if(active && active.id === 'screen-admin-user'){
-    openAdmin();
+  if(active && active.id === 'screen-done-folder'){
+    openDone();
   } else {
     goHome();
   }
 }
 
-/* ============ admin panel (Punyawat14 only) ============ */
-function openAdmin(){
-  if(!isAdmin()) return;
-  document.getElementById('userMenu').classList.remove('open');
-  document.getElementById('pageTitle').textContent = 'จัดการระบบ';
-  const users = loadUsers();
-  const usernames = Object.keys(users);
-  const wrap = document.getElementById('adminUserList');
-  wrap.innerHTML = '';
-  if(usernames.length === 0){
-    wrap.innerHTML = `<div class="glass empty-state"><div class="glyph">👤</div><p>ยังไม่มีผู้ใช้ในเครื่องนี้</p></div>`;
-  } else {
-    usernames.forEach(uname=>{
-      const uTasks = loadTasksFor(uname);
-      const pending = uTasks.filter(t=>!t.done).length;
-      const done = uTasks.filter(t=>t.done).length;
-      const el = document.createElement('div');
-      el.className = 'subject-card admin-user-card glass';
-      el.innerHTML = `
-        <div class="period-tag">${uname===ADMIN_USERNAME?'ADMIN':'USER'}</div>
-        <div class="subject-info">
-          <div class="name">${escapeHtml(uname)}</div>
-          <div class="meta">ค้าง ${pending} งาน · เสร็จแล้ว ${done} งาน</div>
-        </div>
-        <div class="admin-actions">
-          <button class="btn btn-ghost btn-small" onclick="openAdminUser('${escapeHtml(uname)}')">ดู/แก้ไข</button>
-          ${uname!==ADMIN_USERNAME ? `<button class="btn btn-danger" onclick="adminDeleteUser('${escapeHtml(uname)}')">ลบผู้ใช้</button>` : ''}
-        </div>`;
-      wrap.appendChild(el);
-    });
-  }
-  showScreen('screen-admin');
+/* ============ folders (จัดเก็บงานที่ทำเสร็จแล้ว) ============ */
+function createFolder(){
+  const name = window.prompt('ตั้งชื่อแฟ้มใหม่:', '');
+  if(name === null) return;
+  const trimmed = name.trim();
+  if(!trimmed) return;
+  folders.push({ id: folderIdSeq++, name: trimmed });
+  saveFolders();
+  renderFolderGrid();
 }
 
-function openAdminUser(username){
-  if(!isAdmin()) return;
-  ctx.adminUser = username;
-  adminTasks = loadTasksFor(username);
-  document.getElementById('pageTitle').textContent = 'จัดการระบบ';
-  document.getElementById('adminUserTitle').textContent = `งานของ ${username}`;
-  renderAdminTaskList();
-  showScreen('screen-admin-user');
+function renameFolder(){
+  const folder = folders.find(f=>f.id===ctx.currentFolderId);
+  if(!folder) return;
+  const name = window.prompt('แก้ไขชื่อแฟ้ม:', folder.name);
+  if(name === null) return;
+  const trimmed = name.trim();
+  if(!trimmed) return;
+  folder.name = trimmed;
+  saveFolders();
+  document.getElementById('folderTitle').textContent = `แฟ้ม: ${folder.name}`;
+  renderFolderGrid();
 }
 
-function saveAdminTasks(){
-  if(!ctx.adminUser) return;
-  localStorage.setItem('cp_tasks_'+ctx.adminUser, JSON.stringify(adminTasks));
-  // keep the logged-in admin's own view in sync if managing their own account
-  if(ctx.adminUser === getSession()){ tasks = adminTasks; }
+function deleteFolder(){
+  const folder = folders.find(f=>f.id===ctx.currentFolderId);
+  if(!folder) return;
+  if(!window.confirm(`ลบแฟ้ม "${folder.name}" ใช่หรือไม่? งานข้างในจะย้ายไปอยู่ที่ "ยังไม่ได้จัดเก็บแฟ้ม" (ไม่ถูกลบ)`)) return;
+  tasks.forEach(t=>{ if(t.folderId === folder.id) t.folderId = null; });
+  folders = folders.filter(f=>f.id !== folder.id);
+  saveTasks();
+  saveFolders();
+  openDone();
 }
 
-function renderAdminTaskList(){
-  const wrap = document.getElementById('adminTaskList');
-  wrap.innerHTML = '';
-  if(adminTasks.length === 0){
-    wrap.innerHTML = `<div class="glass empty-state"><div class="glyph">🗂</div><p>ผู้ใช้นี้ยังไม่มีงานที่บันทึกไว้</p></div>`;
-    return;
-  }
-  adminTasks.forEach(t=>{
-    const el = document.createElement('div');
-    el.className = 'task-card glass';
-    el.innerHTML = `
-      <div class="task-body">
-        <div class="subj">${escapeHtml(t.subjectName)} · คาบ ${t.period} · วัน${t.dayTh}</div>
-        <div class="text">${escapeHtml(t.text)}</div>
-      </div>
-      <div class="admin-actions">
-        <span class="badge ${t.done?'complete':'pending'}">${t.done?'ทำเรียบร้อย':'ยังไม่เสร็จ'}</span>
-        <div class="admin-actions-row">
-          <button class="btn btn-ghost btn-small" onclick="adminToggleDone(${t.id})">${t.done?'ยกเลิกเสร็จ':'ทำเสร็จ'}</button>
-          <button class="btn btn-ghost btn-small" onclick="adminEditTask(${t.id})">แก้ไข</button>
-          <button class="btn btn-danger" onclick="adminDeleteTask(${t.id})">ลบ</button>
-        </div>
-      </div>`;
-    wrap.appendChild(el);
-  });
-}
-
-function adminToggleDone(id){
-  const t = adminTasks.find(x=>x.id===id);
+function moveTaskToFolder(id, folderIdRaw){
+  const t = tasks.find(x=>x.id===id);
   if(!t) return;
-  t.done = !t.done;
-  saveAdminTasks();
-  renderAdminTaskList();
+  t.folderId = folderIdRaw === '' ? null : Number(folderIdRaw);
+  saveTasks();
+  if(ctx.currentFolderId != null){ renderFolderTaskList(); }
+  else { openDone(); }
 }
 
-function adminEditTask(id){
-  const t = adminTasks.find(x=>x.id===id);
+function folderSelectHtml(t){
+  const opts = folders.map(f=>`<option value="${f.id}" ${t.folderId===f.id?'selected':''}>${escapeHtml(f.name)}</option>`).join('');
+  return `<select class="folder-select" onchange="moveTaskToFolder(${t.id}, this.value)">
+    <option value="" ${!t.folderId?'selected':''}>ไม่มีแฟ้ม</option>
+    ${opts}
+  </select>`;
+}
+
+function doneTaskCard(t){
+  const el = document.createElement('div');
+  el.className = 'task-card glass';
+  el.innerHTML = `
+    <div class="task-body">
+      <div class="subj">${escapeHtml(t.subjectName)} · คาบ ${t.period} · วัน${t.dayTh}</div>
+      <div class="text">${escapeHtml(t.text)}</div>
+    </div>
+    <div class="task-actions">
+      <span class="badge complete">ทำเรียบร้อย</span>
+      ${folderSelectHtml(t)}
+      <div class="task-actions-row">
+        <button class="btn btn-ghost btn-small" onclick="editDoneTask(${t.id})">แก้ไข</button>
+        <button class="btn btn-danger" onclick="deleteDoneTask(${t.id})">ลบ</button>
+      </div>
+    </div>`;
+  return el;
+}
+
+function editDoneTask(id){
+  const t = tasks.find(x=>x.id===id);
   if(!t) return;
   const newText = window.prompt('แก้ไขข้อความงาน:', t.text);
   if(newText === null) return;
   const trimmed = newText.trim();
   if(!trimmed) return;
   t.text = trimmed;
-  saveAdminTasks();
-  renderAdminTaskList();
+  saveTasks();
+  if(ctx.currentFolderId != null){ renderFolderTaskList(); } else { openDone(); }
 }
 
-function adminDeleteTask(id){
+function deleteDoneTask(id){
   if(!window.confirm('ลบงานนี้ถาวรใช่หรือไม่?')) return;
-  adminTasks = adminTasks.filter(t=>t.id !== id);
-  saveAdminTasks();
-  renderAdminTaskList();
+  tasks = tasks.filter(t=>t.id !== id);
+  saveTasks();
+  if(ctx.currentFolderId != null){ renderFolderTaskList(); } else { openDone(); }
+  renderCounts();
 }
 
-function adminDeleteUser(username){
-  if(username === ADMIN_USERNAME) return;
-  if(!window.confirm(`ลบบัญชี "${username}" พร้อมงานทั้งหมดของผู้ใช้นี้ถาวร ใช่หรือไม่?`)) return;
-  const users = loadUsers();
-  delete users[username];
-  saveUsers(users);
-  localStorage.removeItem('cp_tasks_'+username);
-  openAdmin();
+function renderFolderGrid(){
+  const wrap = document.getElementById('folderGrid');
+  wrap.innerHTML = '';
+  folders.forEach(f=>{
+    const count = tasks.filter(t=>t.done && t.folderId===f.id).length;
+    const el = document.createElement('div');
+    el.className = 'folder-tile glass';
+    el.innerHTML = `
+      <div class="folder-icon">🗂</div>
+      <div class="folder-name">${escapeHtml(f.name)}</div>
+      <div class="folder-count">${count} งาน</div>`;
+    el.onclick = ()=>openFolder(f.id);
+    wrap.appendChild(el);
+  });
+  const newEl = document.createElement('div');
+  newEl.className = 'folder-tile glass new-folder';
+  newEl.innerHTML = `<div class="folder-icon">＋</div><div class="folder-name">สร้างแฟ้มใหม่</div>`;
+  newEl.onclick = createFolder;
+  wrap.appendChild(newEl);
+}
+
+function openFolder(folderId){
+  ctx.currentFolderId = folderId;
+  const folder = folders.find(f=>f.id===folderId);
+  document.getElementById('pageTitle').textContent = 'ทำเสร็จแล้ว';
+  document.getElementById('folderTitle').textContent = `แฟ้ม: ${folder ? folder.name : ''}`;
+  renderFolderTaskList();
+  showScreen('screen-done-folder');
+}
+
+function renderFolderTaskList(){
+  const wrap = document.getElementById('folderTaskListEl');
+  wrap.innerHTML = '';
+  const list = tasks.filter(t=>t.done && t.folderId===ctx.currentFolderId);
+  if(list.length===0){
+    wrap.innerHTML = `<div class="glass empty-state"><div class="glyph">🗂</div><p>แฟ้มนี้ยังไม่มีงานเก็บไว้<br>ใช้เมนูเลือกแฟ้มที่การ์ดงานเพื่อย้ายงานมาที่นี่</p></div>`;
+    return;
+  }
+  list.slice().reverse().forEach(t=> wrap.appendChild(doneTaskCard(t)) );
 }
 
 function openSubjects(){
@@ -889,7 +937,8 @@ function submitTask(){
     period: ctx.formSubj.p,
     teacher: ctx.formSubj.teacher,
     text,
-    done:false
+    done:false,
+    folderId:null
   });
   saveTasks();
   goHome();
@@ -942,19 +991,15 @@ function completeTask(id){
 
 function openDone(){
   document.getElementById('pageTitle').textContent = 'ทำเสร็จแล้ว';
-  const wrap = document.getElementById('doneListEl');
+  ctx.currentFolderId = null;
+  renderFolderGrid();
+  const wrap = document.getElementById('unfiledListEl');
   wrap.innerHTML = '';
-  const list = tasks.filter(t=>t.done);
+  const list = tasks.filter(t=>t.done && !t.folderId);
   if(list.length===0){
-    wrap.innerHTML = `<div class="glass empty-state"><div class="glyph">✨</div><p>ยังไม่มีงานที่ทำเสร็จ<br>เมื่อกด "เสร็จสิ้นงาน" รายการจะย้ายมาที่นี่</p></div>`;
+    wrap.innerHTML = `<div class="glass empty-state"><div class="glyph">✨</div><p>ไม่มีงานที่ยังไม่ได้จัดเก็บแฟ้ม<br>เมื่อกด "เสร็จสิ้นงาน" งานใหม่จะโผล่มาที่นี่ก่อน</p></div>`;
   } else {
-    list.slice().reverse().forEach(t=>{
-      const el = renderTaskCard(t);
-      const label = document.createElement('div');
-      label.className = 'chosen';
-      label.style.marginBottom = '-6px';
-      wrap.appendChild(el);
-    });
+    list.slice().reverse().forEach(t=> wrap.appendChild(doneTaskCard(t)) );
   }
   showScreen('screen-done');
 }
@@ -1031,6 +1076,8 @@ const savedUser = getSession();
 if(savedUser){
   tasks = loadTasksFor(savedUser);
   taskIdSeq = tasks.reduce((max,t)=>Math.max(max, t.id), 0) + 1;
+  folders = loadFoldersFor(savedUser);
+  folderIdSeq = folders.reduce((max,f)=>Math.max(max, f.id), 0) + 1;
   enterApp(savedUser);
 } else {
   document.getElementById('authScreen').style.display = 'flex';
